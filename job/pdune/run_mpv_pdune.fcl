@@ -60,7 +60,7 @@ physics:
             supera_params:   "supera_pdune_mc_mpv.fcl"
             out_filename:    "larcv.root"
             unique_filename: true 
-            stream:          "mc"
+            stream:          "mpv"
             Verbosity: 2
             }
  }
@@ -79,7 +79,7 @@ outputs:
  out1:
  {
    module_type: RootOutput
-   fileName:    "%ifb_%p.root"
+   fileName:    "pdune_mpv_%tc_%p.root"
    dataTier:    "supera"
    compressionLevel: 1
    # skim output (if needed)
@@ -115,6 +115,26 @@ services.LArG4Parameters.SkipWireSignalInTPCs: [0,3,4,7,8,11]
 
 services.LArG4Parameters.FillSimEnergyDeposits:       true
 
+# turn off optical simulation
+services.LArG4Parameters.NoPhotonPropagation:   true
+serivces.LArG4Parameters.UseCustomPhysics: true
+serivces.LArG4Parameters.EnabledPhysics: [
+         "Em",
+         #"FastOptical",
+         "SynchrotronAndGN",
+         "Ion",
+         "Hadron",
+         "Decay",
+         "HadronElastic",
+         "Stopping",
+         "NeutronTrackingCut"
+         ]
+services.LArPropertiesService.ScintYield: 0 #24000
+services.LArPropertiesService.ScintPreScale: 0. #0.0287
+services.LArPropertiesService.EnableCerenkovLight: false
+
+services.OpDetResponseInterface.QuantumEfficiency: 0
+
 services.DetectorPropertiesService.Electronlifetime: 12000 # microseconds
 
 services.DetPedestalService: @local::dune_fixedpeds
@@ -127,7 +147,6 @@ services.AdcCompressService:       @local::cmpblock
 
 services.Geometry.SortingParameters.ChannelsPerOpDet: 12
 
-physics.producers.generator.MultiMax: 2
 physics.producers.largeant.ChargeRecoveryMargin: 2.5 # cm
 
 physics.producers.daq.NoiseOn:     true

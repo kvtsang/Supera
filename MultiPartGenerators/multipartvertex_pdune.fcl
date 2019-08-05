@@ -16,7 +16,7 @@ MultiPartVertex : {
         MinMulti     : [         0,         0,          0,        0]
         MaxMulti     : [         1,         3,          3,        3]
         ProbWeight   : [         1,         1,          1,        1]
-        KERange      : [ [40,1000],  [40,600], [600,1500], [50,700]]
+        KERange      : [ [0.04,1],  [0.04,0.6], [0.6,1.5], [0.05,0.7]]
         MomRange     : []
     }
 }
@@ -37,7 +37,7 @@ MultiPartRain : {
         MinMulti     : [           0,             0,         0]
         MaxMulti     : [           5,             5,         5]
         ProbWeight   : [           1,             1,         1]
-        KERange      : [    [40,500],   [1000,1500], [50,1500]]
+        KERange      : [    [0.04,0.5],   [1,1.5], [0.05,1.5]]
         MomRange     : []
     }
 }

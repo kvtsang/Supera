@@ -13,7 +13,7 @@ art_make( BASENAME_ONLY
         dune_LArCVImageMaker
 
     LIB_LIBRARIES
-		nutools_RandomUtils_NuRandomService_service
+		nurandom_RandomUtils_NuRandomService_service
 		larcore_Geometry_Geometry_service
 		larcorealg_Geometry
 		larcoreobj_SummaryData
@@ -38,7 +38,7 @@ art_make( BASENAME_ONLY
     MODULE_LIBRARIES
 		dune_LArCVImageMaker
 		#nutools_ParticleNavigation
-		nutools_RandomUtils_NuRandomService_service
+		nurandom_RandomUtils_NuRandomService_service
 		larcore_Geometry_Geometry_service
 		larcorealg_Geometry
 		#larsim_Simulation

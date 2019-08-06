@@ -131,7 +131,7 @@ MultiPartRain::MultiPartRain(fhicl::ParameterSet const & p)
   _multi_min = p.get<size_t>("MultiMin");
   _multi_max = p.get<size_t>("MultiMax");
 
-  auto const _tpc_v = p.get<std::vector<unsigned short> >("TPCRange");
+  _tpc_v = p.get<std::vector<unsigned short> >("TPCRange");
   auto const xrange = p.get<std::vector<double> > ("XRange");
   auto const yrange = p.get<std::vector<double> > ("YRange");
   auto const zrange = p.get<std::vector<double> > ("ZRange");
@@ -276,7 +276,9 @@ std::vector<size_t> MultiPartRain::GenParticles() const {
 
 void MultiPartRain::GenPosition(double& x, double& y, double& z) {
 
-  size_t tpc_id = (size_t)(fFlatRandom->fire(0,_tpc_v.size()));
+  size_t idx = fFlatRandom->fireInt(_tpc_v.size());
+  size_t tpc_id = _tpc_v.at(idx);
+
   bool found = false;
   // Implementation of required member function here.
   auto geop = lar::providerFrom<geo::Geometry>();

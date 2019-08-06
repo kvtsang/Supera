@@ -5,7 +5,7 @@ MultiPartVertex : {
     DebugMode    : 0
     G4Time       : 0
     G4TimeJitter : 10
-    TPCRange     : [1,5,9]
+    TPCRange     : [1,2,5,6,9,10]
     XRange       : [10]
     YRange       : [10]
     ZRange       : [10]

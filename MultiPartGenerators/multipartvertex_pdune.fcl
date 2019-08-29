@@ -12,11 +12,11 @@ MultiPartVertex : {
     MultiMax     : 6
     MultiMin     : 1
     ParticleParameter: {
-        PDGCode      : [   [11,13],  [111,22], [211,-211],   [2212]]
-        MinMulti     : [         0,         0,          0,        0]
-        MaxMulti     : [         1,         3,          3,        3]
-        ProbWeight   : [         1,         1,          1,        1]
-        KERange      : [ [0.04,1],  [0.04,0.6], [0.6,1.5], [0.05,0.7]]
+        PDGCode      : [  [11,13],       [22], [211,-211],     [2212] ]
+        MinMulti     : [        0,          0,          0,         0  ]
+        MaxMulti     : [        1,          6,          3,         3  ]
+        ProbWeight   : [        1,          1,          1,         1  ]
+        KERange      : [ [0.04,1], [0.04,0.6],  [0.6,1.5], [0.05,0.7] ]
         MomRange     : []
     }
 }
@@ -30,14 +30,14 @@ MultiPartRain : {
     XRange       : [10]
     YRange       : [10]
     ZRange       : [10]
-    MultiMax     : 40 
-    MultiMin     : 35
+    MultiMax     : 10
+    MultiMin     : 10
     ParticleParameter: {
-        PDGCode      : [ [111,11,22],   [211,-211],     [2212],   [13, -13] ]
-        MinMulti     : [           0,            0,          0,          30 ]
-        MaxMulti     : [           2,            2,          2,          35 ]
-        ProbWeight   : [           1,            1,          1,           1 ]
-        KERange      : [  [0.04,0.5],      [1,1.5], [0.05,1.5],    [1, 1.5] ]
+        PDGCode      : [    [11,22], [13,211,-211],     [2212] ]
+        MinMulti     : [          0,             0,         0  ]
+        MaxMulti     : [          5,             5,         5  ]
+        ProbWeight   : [          1,             1,         1  ]
+        KERange      : [ [0.04,0.5],       [1,1.5], [0.05,1.5] ]
         MomRange     : []
     }
 }

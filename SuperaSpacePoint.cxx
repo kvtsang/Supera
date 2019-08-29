@@ -45,6 +45,7 @@ namespace larcv {
 
     larcv::VoxelSet v_occupancy;
     larcv::VoxelSet v_charge;
+    larcv::VoxelSet v_charge_asym;
     larcv::VoxelSet v_chi2;
     larcv::VoxelSet v_inv_chi2;
 
@@ -76,6 +77,7 @@ namespace larcv {
     // reserve
     v_occupancy.reserve(points.size());
     v_charge.reserve(points.size());
+    v_charge_asym.reserve(points.size());
     v_chi2.reserve(points.size());
     v_inv_chi2.reserve(points.size());
 
@@ -95,9 +97,6 @@ namespace larcv {
             continue;
         } 
 
-        /* Calculuate charge by averaging common overlaps of 3 wire
-         * FIXME(kvtsang) should be provided by SpacePoint
-         */ 
         std::vector<art::Ptr<recob::Hit>> hits;
         find_hits.get(i_pt, hits);
 
@@ -117,7 +116,14 @@ namespace larcv {
         if (!(v_chi2.find(vox_id) == larcv::kINVALID_VOXEL))
             continue;
 
-        float charge = get_common_charge(hits);
+        // calculation from Tracys' Cluster3D
+        float charge = pt.ErrXYZ()[1];
+        float charge_asym = pt.ErrXYZ()[3];
+
+        v_chi2.emplace(vox_id, pt.Chisq(), true);
+        v_inv_chi2.emplace(vox_id, 1. / pt.Chisq(), true);
+        v_charge.emplace(vox_id, charge, true);
+        v_charge_asym.emplace(vox_id, charge_asym, true);
 
         if (_store_wire_info) {
           for (const auto& hit : hits) {
@@ -135,9 +141,6 @@ namespace larcv {
           }
         }
 
-        v_chi2.emplace(vox_id, pt.Chisq(), true);
-        v_inv_chi2.emplace(vox_id, 1. / pt.Chisq(), true);
-        v_charge.emplace(vox_id, charge, true);
     }
 
     LARCV_INFO() << n_dropped << " out of " << points.size() 
@@ -159,14 +162,15 @@ namespace larcv {
             store(vec[i], name + std::to_string(i));
     };
 
-    store(v_charge,    "");
-    store(v_chi2,      "_chi2");
-    store(v_inv_chi2,  "_inv_chi2");
-    store(v_occupancy, "_occupancy");
+    store(v_charge,      "");
+    store(v_charge_asym, "_charge_asym");
+    store(v_chi2,        "_chi2");
+    store(v_inv_chi2,    "_inv_chi2");
+    store(v_occupancy,   "_occupancy");
 
     if (_store_wire_info) {
       store_vec(v_hit_charge, "_hit_charge");
-      store_vec(v_hit_amp,    "_hit_charge");
+      store_vec(v_hit_amp,    "_hit_amp");
       store_vec(v_hit_time,   "_hit_time");
       store_vec(v_hit_rms,    "_hit_rms");
     }

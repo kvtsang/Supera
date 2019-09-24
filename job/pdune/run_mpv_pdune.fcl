@@ -117,18 +117,18 @@ services.LArG4Parameters.FillSimEnergyDeposits:       true
 
 # turn off optical simulation
 services.LArG4Parameters.NoPhotonPropagation:   true
-serivces.LArG4Parameters.UseCustomPhysics: true
-serivces.LArG4Parameters.EnabledPhysics: [
-         "Em",
-         #"FastOptical",
-         "SynchrotronAndGN",
-         "Ion",
-         "Hadron",
-         "Decay",
-         "HadronElastic",
-         "Stopping",
-         "NeutronTrackingCut"
-         ]
+#services.LArG4Parameters.UseCustomPhysics: true
+#services.LArG4Parameters.EnabledPhysics: [
+#         "Em",
+#         #"FastOptical",
+#         "SynchrotronAndGN",
+#         "Ion",
+#         "Hadron",
+#         "Decay",
+#         "HadronElastic",
+#         "Stopping",
+#         "NeutronTrackingCut"
+#         ]
 services.LArPropertiesService.ScintYield: 0 #24000
 services.LArPropertiesService.ScintPreScale: 0. #0.0287
 services.LArPropertiesService.EnableCerenkovLight: false

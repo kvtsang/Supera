@@ -90,14 +90,14 @@ ProcessDriver: {
     ParticleCorrector: {
       Verbosity: 2
       Profile: true
-      Cluster3DProducer: "mcst"
+      Cluster3DProducer: "mcst_reco"
       ParticleProducer: "mcst"
       VoxelMinValue: 0.05
     }
 
     MaskTensor3D: {
       Profile: true
-      MinVoxelValueList:     [-0.01]
+      MinVoxelValueList:     [0.0]
       TargetProducerList:    ["fivetypes_reco"]
       ReferenceProducerList: ["reco"]
       OutputProducerList:    ["fivetypes_reco"]
@@ -146,6 +146,7 @@ ProcessDriver: {
       Verbosity: 2
       SpacePointProducer: "cluster3D"
       OutputLabel       : "reco"
+      StoreWireInfo     : true
     }
     
   }

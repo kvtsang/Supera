@@ -9,11 +9,11 @@ The following has been tested with the tags specified. It depends on [[larcv2][h
 # Prepare a working directory
 # ===========================
 source /cvmfs/dune.opensciencegrid.org/products/dune/setup_dune.sh
-setup larsoft v08_21_00 -q e17:prof
+setup larsoft v08_29_00 -q e17:prof
 
 mkdir MyWorkDir && cd MyWorkDir
 mrb newDev
-source MyWorkDir/localProducts_larsoft_v08_21_00_e17_prof/setup
+source MyWorkDir/localProducts_larsoft_v08_29_00_e17_prof/setup
 
 # ===============
 # checkout larcv2

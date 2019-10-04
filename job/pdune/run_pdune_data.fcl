@@ -1,0 +1,113 @@
+#include "protoDUNE_reco_data_Dec2018.fcl"
+#include "ProtoDUNETriggerFilter.fcl"
+
+#include "protodune_tools_dune.fcl"
+#
+process_name: supera
+
+services:
+{
+  TFileService: { fileName: "pdune_hist_%tc.root" }
+  TimeTracker:       {}
+  MemoryTracker:     {}
+  RandomNumberGenerator: {}
+  FileCatalogMetadata:  @local::art_file_catalog_data
+                        @table::protodune_data_reco_services
+  IFDH: {} # A fix for "ServicesManager unable to find the service of type 'ifdh_ns::IFDH'"
+}
+
+source:
+{
+  module_type: RootInput
+  maxEvents:   100
+  fileNames:   [ "pdune_reco_data.root" ]
+}
+
+physics:
+{
+ producers:
+ {
+  cluster3D: @local::standard_cluster3d
+ }
+ analyzers:
+ {
+
+   supera: {
+            module_type:     "LArSoftSuperaDriver"
+            supera_params:   "supera_pdune_data.fcl"
+            out_filename:    "larcv.root"
+            unique_filename: true 
+            stream:          "data"
+            Verbosity: 2
+            }
+ }
+
+ prod: [ cluster3D ]
+ 
+ trigger_paths: [ prod ]
+ #stream1:  [ out1 ]
+ stream1:  [ supera ]   # Only write larcv output
+ end_paths:     [ stream1 ]
+}
+
+outputs:
+{
+ out1:
+ {
+   module_type: RootOutput
+   fileName:    "%ifb_%p.root"
+   dataTier:    "supera"
+   compressionLevel: 1
+  }
+}
+
+services.message.destinations :
+{
+  STDCOUT:
+  {
+     type:      "cout"      #tells the message service to output this destination to cout
+     threshold: "INFO"      #tells the message service that this destination applies to WARNING and higher level messages
+     categories:
+     {
+       default:
+       {
+         limit:       1000  #don't print anything at the infomsg level except the explicitly named categories
+         reportEvery: 1
+       }
+     }
+  }
+}
+
+# SCE service
+services.SpaceCharge.CalibrationInputFilename: "SpaceChargeProtoDUNE/SCE_DataDriven_180kV_v3.root"
+services.SpaceCharge.RepresentationType: "Voxelized_TH3"
+services.SpaceCharge.EnableCalEfieldSCE: true
+services.SpaceCharge.EnableCalSpatialSCE: true
+
+# cluster3d
+physics.producers.cluster3D.Hit3DBuilderAlg.HitFinderTag:                        "gaushit"
+physics.producers.cluster3D.Hit3DBuilderAlg.DoRawDigitAssns:                     false 
+physics.producers.cluster3D.Hit3DBuilderAlg.NumSigmaPeakTime:                    3.0
+physics.producers.cluster3D.Hit3DBuilderAlg.HitWidthScaleFactor:                 3.0
+physics.producers.cluster3D.Hit3DBuilderAlg.DeltaPeakTimeSig:                    1.75
+physics.producers.cluster3D.Hit3DBuilderAlg.InvalidTPCVec:                       [0, 3, 4, 7, 8, 11]
+# following beam side only
+#physics.producers.cluster3D.Hit3DBuilderAlg.InvalidTPCVec:                       [0,2,3,4,6,7,8,10,11]
+physics.producers.cluster3D.ClusterAlg:                                          @local::standard_cluster3ddbscanalg
+physics.producers.cluster3D.EnableMonitoring:                                    true
+physics.producers.cluster3D.ClusterAlg.MinPairPts:                               1
+physics.producers.cluster3D.ClusterAlg.kdTree.PairSigmaPeakTime:                 3.0
+physics.producers.cluster3D.ClusterAlg.kdTree.RefLeafBestDist:                   1.25 #0.75
+physics.producers.cluster3D.ClusterAlg.kdTree.MaxWireDeltas:                     4
+physics.producers.cluster3D.ClusterMergeAlg.MinEigenToProcess:                   5 #50.
+physics.producers.cluster3D.ClusterMergeAlg.MinTransEigenVal:                    1. #0.5
+physics.producers.cluster3D.ClusterMergeAlg.NumTransEigenVals:                   3. #30.
+physics.producers.cluster3D.ClusterMergeAlg.OutputHistograms:                    true
+physics.producers.cluster3D.ClusterPathAlg:                                      @local::standard_convexhullPathAlg
+physics.producers.cluster3D.ClusterPathAlg.MinTinyClusterSize:                   200000 #20 #30 #40 #200000
+physics.producers.cluster3D.ClusterPathAlg.MinEigen0To1Ratio:                    12.
+physics.producers.cluster3D.ClusterPathAlg.ClusterAlg.MinPairPts:                1
+physics.producers.cluster3D.ClusterPathAlg.ClusterAlg.kdTree.PairSigmaPeakTime:  3.0
+physics.producers.cluster3D.ClusterPathAlg.ClusterAlg.kdTree.RefLeafBestDist:    0.75
+physics.producers.cluster3D.Hit3DBuilderAlg.OutputHistograms:                    false
+physics.producers.cluster3D.ClusterMergeAlg.OutputHistograms:                    false

@@ -28,7 +28,7 @@ make
 # checkout dunetpc
 # ================
 cd $MRB_SOURCE
-mrb g dunetpc
+mrb g -t v08_29_00 dunetpc
 
 # ===============
 # checkout supera

@@ -8,11 +8,17 @@ process_name: supera
 services:
 {
   TFileService: { fileName: "pdune_hist_%tc.root" }
-  TimeTracker:       {}
-  MemoryTracker:     {}
-  RandomNumberGenerator: {}
-  FileCatalogMetadata:  @local::art_file_catalog_data
-                        @table::protodune_data_reco_services
+  TimeTracker:                  {}
+  MemoryTracker:                {}
+  RandomNumberGenerator:        {}
+  FileCatalogMetadata:          @local::art_file_catalog_data
+  ExptGeoHelperInterface:       @local::dune_geometry_helper
+  Geometry:                     @local::protodune_geo
+  DetectorPropertiesService:    @local::protodune_detproperties
+  DetectorClocksService:        @local::protodune_detectorclocks
+  LArPropertiesService:         @local::dunefd_properties
+  ChannelStatusService:         @local::dunefd_channel_status
+  NuRandomService:              @local::dune_seedservice
   IFDH: {} # A fix for "ServicesManager unable to find the service of type 'ifdh_ns::IFDH'"
 }
 
@@ -77,12 +83,6 @@ services.message.destinations :
      }
   }
 }
-
-# SCE service
-services.SpaceCharge.CalibrationInputFilename: "SpaceChargeProtoDUNE/SCE_DataDriven_180kV_v3.root"
-services.SpaceCharge.RepresentationType: "Voxelized_TH3"
-services.SpaceCharge.EnableCalEfieldSCE: true
-services.SpaceCharge.EnableCalSpatialSCE: true
 
 # cluster3d
 physics.producers.cluster3D.Hit3DBuilderAlg.HitFinderTag:                        "gaushit"

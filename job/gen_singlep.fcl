@@ -1,5 +1,6 @@
 #include "services_icarus_simulation.fcl"
 #include "services_icarus.fcl"
+#include "singles_icarus.fcl"
 #include "largeantmodules_icarus.fcl"
 #include "detsimmodules_ICARUS.fcl"
 #include "opdetsim_pmt_icarus.fcl"
@@ -38,8 +39,7 @@ physics:
 
  producers:
  {
-   generator: @local::MultiPartVertex
-   rain:      @local::MultiPartRain
+   generator: @local::icarus_singlep
    largeant:  @local::icarus_largeant
    ionization: {
                  module_type: "larsim/ElectronDrift/ShiftEdepSCE"
@@ -66,92 +66,53 @@ physics:
 		out_filename: "larcv.root"
 		unique_filename: false
 		stream: "mc"
-		Verbosity: 2
+		Verbosity: 1
 	}
  }
 
- simulate: [ rns, generator, rain, largeant, mcreco ]
- #simulate: [ rns, generator, rain, largeant, mcreco, daq, rawdigitfilter, decon1droi, gaushit, gaushitsel, cluster3d]
- #simulate: [ rns, generator, largeant, mcreco, daq, rawdigitfilter, decon1droi, gaushit, gaushitsel, cluster3d]
- ana_stream: [ supera ]
+ simulate: [ rns, generator, largeant, mcreco, daq, rawdigitfilter, decon1droi, gaushit, gaushitsel, cluster3d]
+ #ana_stream: [ supera ]
+ ana_stream: []
  out_stream: [ out1   ]
   
  trigger_paths: [simulate]
- #end_paths:     [ana_stream, out_stream]
+ end_paths:     [ana_stream, out_stream]
  #end_paths:     [out_stream]
- end_paths:     [ana_stream]
+ #end_paths:     [ana_stream]
 }
 
-physics.producers.generator.DebugMode    : 1
-physics.producers.generator.G4Time       : 0
-physics.producers.generator.G4TimeJitter : 0
-physics.producers.generator.XRange       : [20,20]
-physics.producers.generator.YRange       : [20,20]
-physics.producers.generator.ZRange       : [780,780]
-#physics.producers.generator.TPCRange     : [0,1]
-physics.producers.generator.TPCRange     : [[0,0]]
-
-#physics.producers.generator.MultiMax     : 5
-#physics.producers.generator.MultiMin     : 1
-#physics.producers.generator.ParticleParameter.PDGCode      : [    [11,13],    [111,22], [211,-211],      [2212]]
-#physics.producers.generator.ParticleParameter.MinMulti     : [          0,           0,          0,           0]
-#physics.producers.generator.ParticleParameter.MaxMulti     : [          1,           3,          3,           3]
-#physics.producers.generator.ParticleParameter.ProbWeight   : [          3,           2,          1,           1]
-#physics.producers.generator.ParticleParameter.KERange      : [ [0.05,1.0],  [0.05,0.5], [0.05,0.5],  [0.05,0.4]]
-
-physics.producers.generator.MultiMax     : 5
-physics.producers.generator.MultiMin     : 2
-physics.producers.generator.ParticleParameter.PDGCode      : [   [-13,13],    [22,11],      [111], [211,-211],      [2212]]
-physics.producers.generator.ParticleParameter.MinMulti     : [          0,          0,          0,          0,           0]
-physics.producers.generator.ParticleParameter.MaxMulti     : [          1,          1,          2,          2,           3]
-physics.producers.generator.ParticleParameter.ProbWeight   : [          1,          1,          1,          1,           1]
-physics.producers.generator.ParticleParameter.KERange      : [ [0.05,1.0], [0.05,1.0], [0.05,0.5], [0.05,0.8],  [0.05,0.4]]
-
-#physics.producers.generator.MultiMax     : 3
-#physics.producers.generator.MultiMin     : 3
-#physics.producers.generator.ParticleParameter.PDGCode      : [      [-13],       [111],     [2212]]
-#physics.producers.generator.ParticleParameter.MinMulti     : [          1,           1,          1]
-#physics.producers.generator.ParticleParameter.MaxMulti     : [          1,           1,          1]
-#physics.producers.generator.ParticleParameter.ProbWeight   : [          1,           1,          1]
-#physics.producers.generator.ParticleParameter.KERange      : [ [0.05,0.1],  [0.05,0.2], [0.05,0.2]]
-
-#physics.producers.generator.MultiMax     : 2
-#physics.producers.generator.MultiMin     : 1
-#physics.producers.generator.ParticleParameter.PDGCode      : [       [13],      [2212]]
-#physics.producers.generator.ParticleParameter.MinMulti     : [          0,           0]
-#physics.producers.generator.ParticleParameter.MaxMulti     : [          1,           1]
-#physics.producers.generator.ParticleParameter.ProbWeight   : [          1,           1]
-#physics.producers.generator.ParticleParameter.KERange      : [ [0.05,1.0],  [0.05,0.4]]
-
-physics.producers.generator.ParticleParameter.MomRange     : []
-
-physics.producers.rain.DebugMode    : 1
-physics.producers.rain.G4Time       : 0
-physics.producers.rain.G4TimeJitter : 0
-physics.producers.rain.XRange       : [-30,-30]
-physics.producers.rain.YRange       : [-30,-30]
-physics.producers.rain.ZRange       : [750,750]
-physics.producers.rain.DirectInward : true
-physics.producers.rain.TPCRange     : [[0,0]]
-physics.producers.rain.MultiMax     : 10
-physics.producers.rain.MultiMin     : 10
-physics.producers.rain.ParticleParameter.PDGCode      : [   [-13,13],     [11,22],     [2212]]
-physics.producers.rain.ParticleParameter.MinMulti     : [          0,           0,          0]
-physics.producers.rain.ParticleParameter.MaxMulti     : [         30,          30,         30]
-physics.producers.rain.ParticleParameter.ProbWeight   : [          3,           1,          1]
-physics.producers.rain.ParticleParameter.KERange      : [  [0.5,2.0],  [0.05,0.6], [0.05,0.4]]
-#physics.producers.rain.ParticleParameter.PDGCode      : [       [13],      [2212]]
-#physics.producers.rain.ParticleParameter.MinMulti     : [          0,           0]
-#physics.producers.rain.ParticleParameter.MaxMulti     : [          1,           1]
-#physics.producers.rain.ParticleParameter.ProbWeight   : [          1,           1]
-#physics.producers.rain.ParticleParameter.KERange      : [ [0.05,1.0],  [0.05,0.4]]
-physics.producers.rain.ParticleParameter.MomRange     : []
+physics.producers.generator.PDG: [-13 ]            # muon
+physics.producers.generator.PosDist: 0             # Flat position dist.
+physics.producers.generator.X0: [ -295.0 ]
+physics.producers.generator.Y0: [   0.0 ]
+physics.producers.generator.Z0: [ 400.0 ]
+physics.producers.generator.T0: [   0.0 ]
+physics.producers.generator.SigmaX: [  0.0 ]      # x = (0, 256)
+physics.producers.generator.SigmaY: [  0.0 ]      # y = (-116.5, 116.5)
+physics.producers.generator.SigmaZ: [  0.0 ]      # z = (0, 1037)
+physics.producers.generator.SigmaT: [  0.0 ]        # In time
+physics.producers.generator.PDist: 0               # Flat momentum dist. (0.05-2.0 GeV)
+physics.producers.generator.P0: [ 0.4 ]
+physics.producers.generator.SigmaP: [ 0.0 ]
+physics.producers.generator.AngleDist: 0           # Flat angle dist.
+#Travel toward (0,0,1)
+#physics.producers.generator.Theta0XZ: [ 0. ]       # y-azimuth
+#physics.producers.generator.Theta0YZ: [ 0. ]       # y-latitude
+#physics.producers.generator.SigmaThetaXZ: [ 0. ] # Quasi-isotropic
+#physics.producers.generator.SigmaThetaYZ: [ 0. ]
+#Travel toward (0,1,0)
+physics.producers.generator.Theta0XZ: [ 0. ]       # y-azimuth
+physics.producers.generator.Theta0YZ: [ 90. ]       # y-latitude
+physics.producers.generator.SigmaThetaXZ: [ 0. ] # Quasi-isotropic
+physics.producers.generator.SigmaThetaYZ: [ 0. ]
 
 physics.producers.largeant.KeepParticlesInVolumes: ["volCryostat"] #only keep MCParticles that cross the cryostat
 physics.producers.mcreco.SimChannelLabel: "largeant:TPCActive"
 physics.producers.mcreco.MCParticleLabel: "largeant"
 physics.producers.mcreco.UseSimEnergyDeposit: true
 physics.producers.mcreco.MCRecoPart.SavePathPDGList: [13,-13,211,-211,111,311,310,130,321,-321,2212,2112,2224,2214,2114,1114,3122,1000010020,1000010030,1000020030,1000020040]
+physics.producers.mcreco.MCTrackRecoAlg.DebugMode: true
+physics.producers.mcreco.MCShowerRecoAlg.MinShowerEnergy: 4
 
 #physics.producers.daq.NoiseGenToolVec:  [@local::WhiteNoiseTool, @local::WhiteNoiseTool, @local::WhiteNoiseTool]
 physics.producers.daq.SuppressNoSignal: true

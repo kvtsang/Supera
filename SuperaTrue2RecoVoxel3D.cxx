@@ -8,151 +8,8 @@
 #include "canvas/Persistency/Common/FindManyP.h"
 #include "larcv/core/DataFormat/EventVoxel3D.h"
 
-template <typename T, typename M>
-inline void dump_sim_channels(T const& sim_chnls, M const& meta, std::string fname)
+namespace larcv 
 {
-  std::ofstream out(fname);
-  out << "ch,time,track_id,n_e,energy,x,y,z,id\n";
-  for (auto const& sim_ch: sim_chnls) {
-    auto ch = sim_ch.Channel();
-
-    for (auto const tick_ides : sim_ch.TDCIDEMap()) {
-      double time = supera::TPCTDC2Tick(tick_ides.first);
-	    for (auto const& edep : tick_ides.second) {
-        out << ch << ','
-          << time << ','
-          << edep.trackID << ','
-          << edep.numElectrons << ','
-          << edep.energy << ','
-          << edep.x << ','
-          << edep.y << ','
-          << edep.z << ','
-          << meta.id(edep.x, edep.y, edep.z) << '\n';
-      }
-    }
-  }
-  out.close();
-}
-
-template <typename T>
-inline void dump_reco_hits(T const& hits, std::string fname)
-{
-  std::ofstream out(fname);
-  out << "ch,time,rms,amp,charge\n";
-
-  for (auto const& hit : hits) {
-    out << hit.Channel() << ","
-      << hit.PeakTime() << ","
-      << hit.RMS() << ","
-      << hit.PeakAmplitude() << ","
-      << hit.Integral() << "\n";
-  }
-  out.close();
-}
-
-template <typename T, typename F, typename M>
-inline void dump_cluster3d(
-    T const& space_pts,
-    F const& finder,
-    M const& meta,
-    std::string fname)
-{
-  std::ofstream out(fname);
-  out << "id,x,y,z,charge,ch1,t1,rms1,ch2,t2,rms2,ch3,t3,rms3\n";
-
-  for (size_t i = 0; i < space_pts.size(); ++i) {
-    auto const &pt = space_pts[i];
-    auto *xyz = pt.XYZ();
-
-    out
-      << meta.id(xyz[0], xyz[1], xyz[2]) << ','
-      << xyz[0] << ','
-      << xyz[1] << ','
-      << xyz[2] << ','
-      << pt.ErrXYZ()[1];
-
-    std::vector<art::Ptr<recob::Hit>> hits;
-    finder.get(i, hits);
-
-    for (auto const& hit : hits) {
-      out << ','
-        << hit->Channel() << ','
-        << hit->PeakTime() << ','
-        << hit->RMS();
-    }
-    out << "\n";
-  }
-  out.close();
-}
-
-template <typename T, typename M>
-inline void dump_ghosts(T const& ghosts, M const& meta, std::string fname)
-{
-  std::ofstream out(fname);
-  out << "id,x,y,z,is_ghost\n";
-
-  for (const auto& [vox_id, is_ghost]: ghosts) {
-    out
-      << vox_id << ','
-      << meta.pos_x(vox_id) << ','
-      << meta.pos_y(vox_id) << ','
-      << meta.pos_z(vox_id) << ','
-      << is_ghost << '\n';
-  }
-  out.close();
-}
-
-template <typename T, typename M>
-inline void dump_voxels(T const& voxels, M const& meta, std::string fname)
-{
-  std::ofstream out(fname);
-  out << "id,x,y,z\n";
-
-  for (const auto& vox_id : voxels) {
-    out
-      << vox_id << ','
-      << meta.pos_x(vox_id) << ','
-      << meta.pos_y(vox_id) << ','
-      << meta.pos_z(vox_id) << '\n';
-  }
-  out.close();
-}
-
-template <typename T>
-inline void dump_reco2true(T const& reco2true, std::string fname)
-{
-  std::ofstream out(fname);
-  out << "reco_id,true_id,track_id\n";
-  for (auto const& [reco_pt, true_hits] : reco2true) {
-    for (auto const& hit : true_hits) {
-      out
-        << reco_pt.get_id() << ','
-        << hit.voxel_id << ','
-        << hit.track_id << '\n';
-    }
-  }
-  out.close();
-}
-
-template <typename T>
-inline void dump_true2reco(T const& true2reco, std::string fname)
-{
-  std::ofstream out(fname);
-  out << "true_id,track_id,reco_id\n";
-  for (auto& [true_info, reco_pts] : true2reco) {
-    for (auto reco_pt : reco_pts) {
-      auto reco_id = reco_pt.get_id();
-      out
-        << true_info.voxel_id << ','
-        << true_info.track_id << ','
-        << reco_id << '\n';
-    }
-  }
-  out.close();
-}
-
-namespace larcv {
-
   static SuperaTrue2RecoVoxel3DProcessFactory __global_SuperaTrue2RecoVoxel3DProcessFactory__;
 
   SuperaTrue2RecoVoxel3D::SuperaTrue2RecoVoxel3D(const std::string name)
@@ -225,29 +82,45 @@ namespace larcv {
   bool SuperaTrue2RecoVoxel3D::process(IOManager& mgr)
   {
     SuperaBase::process(mgr);
-    //
-    // Step 0. get 3D meta
-    // Step 1. create a list of true hits
-    //   - store an array of hits per channel, each hit contains time and 3D voxel ID)
-    // Step 2. Create a map of reco 3D voxel <=> true 3D voxel (per plane, as a representation of matched hits)
-    // Step 3. Identify valid reco3D voxels
-    //   - Find an overlapping true 3D voxel ID across planes per 3D reco voxel ID
-    //
+		auto event_id = mgr.event_id().event();
 
-    //
-    // Step 0. ... get meta3d
-    //
-    // clear true2reco, ghosts maps
+   // clear true2reco, ghosts maps
     clear_maps();
 
-		auto event_id = mgr.event_id().event();
+    // setup csv logger
+    std::map<std::string, std::ofstream> csv;
+    if (_dump_to_csv) {
+      auto save_to = [&](std::string prefix)
+      {
+        return prefix + "_" + std::to_string(event_id) + ".csv";
+      };
+
+      std::vector<std::tuple<std::string, std::string>> tables;
+      tables.emplace_back("simch", "ch,time,track_id,n_e,energy,x,y,z,ix,iy,iz,id");
+      tables.emplace_back("gaushits", "ch,time,rms,amp,charge");
+      tables.emplace_back("cluster3d", "id,x,y,z,charge,ch1,t1,rms1,ch2,t2,rms2,ch3,t3,rms3");
+      tables.emplace_back("true3d", "id,x,y,z");
+      tables.emplace_back("reco3d", "id,x,y,z");
+      tables.emplace_back("ghosts", "id,is_ghost");
+      tables.emplace_back("true2reco", "true_id,track_id,reco_id");
+      tables.emplace_back("ranking", "reco_id,rank");
+
+      for (auto const& [key, header] : tables) {
+        csv.emplace(key, save_to(key));
+        csv[key] << header << '\n';
+      }
+    }
+    
+    // setup meta
     LARCV_INFO() << "Retrieving 3D meta..." << std::endl;
     auto meta3d = get_meta3d(mgr);
 
 		std::unordered_set<VoxelID_t> true_voxel_ids;
-		std::vector<VoxelID_t> reco_voxel_ids;
+		std::unordered_set<VoxelID_t> reco_voxel_ids;
 
-    //
+    //std::ofstream log("debug_" + std::to_string(event_id) + ".csv");
+    //log << "reco_id,track_id,rank,box1,box2,box3,dist12,dist13,dist23\n";
+    
     // Step 1. ... create a list of true hits
     //
 
@@ -266,25 +139,43 @@ namespace larcv {
 
       // Loop over hits and store
       for (auto const tick_ides : sch.TDCIDEMap()) {
-        double x_pos = (supera::TPCTDC2Tick(tick_ides.first) * supera::TPCTickPeriod() - supera::TriggerOffsetTPC()) * supera::DriftVelocity();
         TrueHit_t hit;
         hit.time = supera::TPCTDC2Tick(tick_ides.first);
 
         for (auto const& edep : tick_ides.second) {
-          if (edep.numElectrons < _hit_threshold_ne) continue;
-
+          double x_pos = (supera::TPCTDC2Tick(tick_ides.first) * supera::TPCTickPeriod() 
+            - supera::TriggerOffsetTPC()) * supera::DriftVelocity();
           if(_use_true_pos) x_pos = edep.x;
 
           auto vox_id = meta3d.id(x_pos, edep.y, edep.z);
+
       	  if(vox_id == larcv::kINVALID_VOXELID) continue;
           true_voxel_ids.insert(vox_id);
 
-          hit.track_voxel_ids.emplace_back(vox_id, edep.trackID);
+          if (_dump_to_csv) 
+            csv["simch"] 
+              << ch << ','
+              << hit.time << ','
+              << edep.trackID << ','
+              << edep.numElectrons << ','
+              << edep.energy << ','
+              << edep.x << ','
+              << edep.y << ','
+              << edep.z << ','
+              << meta3d.id_to_x_index(vox_id) << ','
+              << meta3d.id_to_y_index(vox_id) << ','
+              << meta3d.id_to_z_index(vox_id) << ','
+              << vox_id << '\n';
+
+          if (edep.numElectrons < _hit_threshold_ne) continue;
+
+          hit.voxel_ids.push_back(vox_id);
+          hit.track_ids.push_back(edep.trackID);
           hit.n_electrons.push_back(edep.numElectrons);
         }
 
         // append hit to true_hit_vv[ch]
-        if(hit.track_voxel_ids.size())
+        if(!hit.track_ids.empty())
           true_hit_vv[ch].push_back(std::move(hit));
       }
     }
@@ -311,96 +202,111 @@ namespace larcv {
     if (!space_pts.isValid()) return true;
     art::FindManyP<recob::Hit> hit_finder(space_pts, *ev, _sps_producer);
 
+    std::vector<std::tuple<VoxelID_t, TrackID_t, double>> scores;
+
     for (size_t i = 0; i < space_pts->size(); ++i) {
       auto const &pt = space_pts->at(i);
       auto *xyz = pt.XYZ();
 
       auto reco_voxel_id = meta3d.id(xyz[0], xyz[1], xyz[2]);
       if(reco_voxel_id == larcv::kINVALID_VOXELID) continue;
-      reco_voxel_ids.push_back(reco_voxel_id);
+      reco_voxel_ids.insert(reco_voxel_id);
+
+      // reco output
+      RecoVoxel3D reco_out_id(reco_voxel_id);
 
       std::vector<art::Ptr<recob::Hit>> hits;
       hit_finder.get(i, hits);
 
-      // matching: gaushit -> simhit -> true 3d voxel
-      // 3 voxel set per 1 space point
-      std::vector<std::set<TrackVoxel_t>> matched_voxels;
+      std::vector<Track2Voxel> matched_segments;
+      std::vector<std::set<TrackID_t>> matched_track_ids;
+
+      if (_dump_to_csv)
+        csv["cluster3d"]
+          << reco_voxel_id << ','
+          << xyz[0] << ','
+          << xyz[1] << ','
+          << xyz[2] << ','
+          << pt.ErrXYZ()[1];
+
 
       for (auto const& hit_ptr : hits) {
         auto const& hit = *hit_ptr;
-
         auto ch = hit.Channel();
         auto t = hit.PeakTime();
 
         double t_start = t - _hit_window_ticks;
         double t_end = t + _hit_window_ticks;
 
-        std::set<TrackVoxel_t> track_voxel_ids;
-        if (_hit_peak_finding)
-          find_hit_peaks(true_hit_vv[ch], t_start, t_end, track_voxel_ids);
-        else
-          find_hits(true_hit_vv[ch], t_start, t_end, track_voxel_ids);
+        // match track segment between t_start and t_end
+        auto segments = match_track_segments(true_hit_vv[ch], t_start, t_end);
 
-        matched_voxels.push_back(std::move(track_voxel_ids));
+        // save unique track_id 
+        std::set<TrackID_t> track_ids;
+        for (auto const& key_value : segments)
+          track_ids.insert(key_value.first);
+
+        matched_track_ids.push_back(std::move(track_ids));
+        matched_segments.push_back(std::move(segments));
+
+        if (_dump_to_csv)
+          csv["cluster3d"] << ','
+            << hit.Channel() << ','
+            << hit.PeakTime() << ','
+            << hit.RMS();
+      } // for hits
+      if (_dump_to_csv) csv["cluster3d"] << '\n';
+
+      // TODO(2020-04-15 kvtang) Implement n-fold matching or n_planes != 3
+      if (matched_segments.size() != 3) continue;
+
+      // find overlapping tracks
+      auto track_ids = find_overlaps(matched_track_ids);
+
+      // build true2reco from hits
+      for (auto track_id : track_ids) {
+        
+        RecoVoxel3D reco_out_id(reco_voxel_id);
+        [[maybe_unused]] auto dist = [&](const VoxelID_t& v0, const VoxelID_t& v1)
+        {
+          size_t idx0[3], idx1[3];
+          meta3d.id_to_xyz_index(v0, idx0[0], idx0[1], idx0[2]);
+          meta3d.id_to_xyz_index(v1, idx1[0], idx1[1], idx1[2]);
+
+          size_t d = 0;
+          for (size_t i = 0; i < 3; ++i)
+            d += idx0[i] > idx1[i] ? idx0[i] - idx1[i] : idx1[i] - idx0[i];
+
+          return d;
+        };
+
+        // -----------------------------------------------------------------------
+        // TODO(2020-04-15 kvtsang) Rewrite a generic mathcing for N_planes != 3
+        // The current implementation assume 3 planes
+        // yes, it's ugly and not robust
+        // -----------------------------------------------------------------------
+        for (auto v0 : matched_segments[0][track_id]) {
+          for (auto v1 : matched_segments[1][track_id]) {
+            if (dist(v0, v1) > 1) continue;
+            for (auto v2 : matched_segments[2][track_id]) {
+              if (dist(v0, v2) >  1 || dist(v1, v2) > 1) continue;
+              for (VoxelID_t id : {v0, v1, v2}) {
+                TrackVoxel_t true_out_id(id, track_id);
+                insert_one_to_many(_true2reco, true_out_id, reco_out_id);
+                insert_one_to_many(_reco2true, reco_out_id, true_out_id);
+              }
+            } // for v2
+          } // for v1
+        } // for v0
+      } // loop track_ids
+
+      if (_dump_to_csv) {
+        csv["ranking"]
+          << reco_voxel_id << ','
+          << get_rank(reco_voxel_id, meta3d, true_voxel_ids) 
+          << '\n';
       }
-
-      // finding overlaps
-      std::set<TrackVoxel_t> overlaps;
-
-      if (_twofold_matching) {
-        // Optional: require matches from two different plane
-        for (size_t p1 = 0; p1 < matched_voxels.size(); ++p1) {
-          auto const& v1 = matched_voxels[p1];
-          for (size_t p2 = p1 + 1; p2 < matched_voxels.size(); ++p2) {
-            auto const& v2 = matched_voxels[p2];
-
-            //overlaps between planes p1 and p2
-            std::set_intersection(
-                v1.begin(), v1.end(),
-                v2.begin(), v2.end(),
-                std::inserter(overlaps, overlaps.end()));
-          }
-        }
-      }
-      else {
-        // non-ghost = if all hits from different planes come from the same true voxel
-        if (matched_voxels.size() > 0) {
-          auto& v = matched_voxels[0];
-          overlaps.insert(v.begin(), v.end());
-        }
-
-        for (size_t plane = 1; plane < matched_voxels.size(); ++plane) {
-            auto const& v = matched_voxels[plane];
-
-            // temporary storage
-            std::set<TrackVoxel_t> overlaps_;
-
-            std::set_intersection(
-                overlaps.begin(), overlaps.end(),
-                v.begin(), v.end(),
-                std::inserter(overlaps_, overlaps_.end()));
-
-            overlaps = std::move(overlaps_);
-        }
-      }
-      
-      RecoVoxel3D reco_voxel3d(reco_voxel_id);
-      for (auto const& true_pt: overlaps)
-        insert_one_to_many(_true2reco, true_pt, reco_voxel3d);
     } // end looping reco pts
-
-    // debug in csv file
-    auto save_to = [&](std::string prefix) {
-      return prefix + "_" + std::to_string(event_id) + ".csv";
-    };
-    if (_dump_to_csv)
-      dump_true2reco(_true2reco, save_to("true2reco_all"));
-
-    if (_post_averaging)
-      set_ghost_with_averaging(meta3d);
-    else
-      set_ghost();
-
 
     // -----------------------------------------------------------------------
     // TODO(2020-04-08 kvtsang) Remove this part?
@@ -408,6 +314,8 @@ namespace larcv {
     // It is kept to maintain backward compatibility.
     // Could be removed if this class is called inside SuperaMCParticleCluster
     // -----------------------------------------------------------------------
+    //
+    // store corresponding reco points in VoxelSetArray (outer index == true VoxelSet index)
     auto true2reco = contract_true2reco();
     auto reco2true = contract_reco2true();
 
@@ -440,170 +348,64 @@ namespace larcv {
       }
     }
 
-    // store corresponding reco points in VoxelSetArray (outer index == true VoxelSet index)
+    if (_dump_to_csv) {
+      auto gaus_hits = ev->getValidHandle<std::vector<recob::Hit>>("gaushit");
+      if (gaus_hits.isValid()) {
+        for (auto const& hit : *gaus_hits)
+          csv["gaushits"]
+            << hit.Channel() << ','
+            << hit.PeakTime() << ','
+            << hit.RMS() << ','
+            << hit.PeakAmplitude() << ','
+            << hit.Integral() << '\n';
+      }
 
-    // --------------------------------
-    //  ____  _____ ____  _   _  ____
-    //  |  _ \| ____| __ )| | | |/ ___|
-    //  | | | |  _| |  _ \| | | | |  _
-    //  | |_| | |___| |_) | |_| | |_| |
-    //  |____/|_____|____/ \___/ \____|
-    // --------------------------------
+      for (auto id : true_voxel_ids)
+        csv["true3d"] << id << ','
+          << meta3d.pos_x(id) << ','
+          << meta3d.pos_y(id) << ','
+          << meta3d.pos_z(id) << '\n';
 
-    if (!_dump_to_csv) return true;
+      for (auto id : reco_voxel_ids)
+        csv["reco3d"] << id << ','
+          << meta3d.pos_x(id) << ','
+          << meta3d.pos_y(id) << ','
+          << meta3d.pos_z(id) << '\n';
 
-    // SimChannel
-    dump_sim_channels(LArData<supera::LArSimCh_t>(), meta3d, save_to("simch"));
+      for (auto id : reco_voxel_ids)
+        csv["ghosts"]
+          << id << ','
+          << is_ghost(id) << '\n';
 
-    // cluster3d
-    dump_cluster3d(*space_pts, hit_finder, meta3d, save_to("reco3d"));
-
-    // ghost label
-    std::map<VoxelID_t, bool> ghosts;
-    for (auto reco_id : reco_voxel_ids)
-      ghosts.emplace(reco_id, is_ghost(reco_id));
-    dump_ghosts(ghosts, meta3d, save_to("ghosts"));
-
-    // true label (from SimChannels)
-    dump_voxels(true_voxel_ids, meta3d, save_to("true3d"));
-
-    // gaushit
-    auto gaus_hits = ev->getValidHandle<std::vector<recob::Hit>>("gaushit");
-    if (gaus_hits.isValid()) {
-      dump_reco_hits(*gaus_hits, save_to("gaushit"));
+      for (auto& [true_id, reco_ids] : _true2reco) {
+        for (auto& reco_id : reco_ids) {
+          csv["true2reco"]
+            << true_id.voxel_id<< ','
+            << true_id.track_id << ','
+            << reco_id.get_id() << '\n';
+          }
+      }
     }
-
-    // reco2true
-    dump_reco2true(_reco2true, save_to("reco2true"));
-
-    // true2reco (after averaging)
-    dump_true2reco(_true2reco, save_to("true2reco"));
     return true;
   }
 
-
-  void SuperaTrue2RecoVoxel3D::set_ghost_with_averaging(
-      const larcv::Voxel3DMeta& meta3d)
+  Track2Voxel SuperaTrue2RecoVoxel3D::match_track_segments(
+      const std::vector<TrueHit_t>& hits, double t_start, double t_end)
   {
-    double threshold2 = pow(_post_averaging_threshold, 2);
-
-    for (auto& [true_pt, reco_pts] : _true2reco) {
-      size_t n = reco_pts.size();
-
-      // 1-to-1 match
-      // mark as non-ghost
-      if (n == 1) {
-        auto reco_pt = *reco_pts.begin();
-        insert_one_to_many(_reco2true, reco_pt, true_pt);
-        continue;
-      }
-
-      // 1-to-many match
-      // calcuate the mean reco. position (per true voxel + track_id)
-      // mark a subset as non-ghost near mean
-      std::vector<VoxelID_t> ids;
-      std::vector<double> x, y, z;
-
-      // convert reco voxel ids to xyz
-      for (auto const& reco_pt: reco_pts) {
-        auto id = reco_pt.get_id();
-        ids.push_back(id);
-        x.push_back(meta3d.pos_x(id));
-        y.push_back(meta3d.pos_y(id));
-        z.push_back(meta3d.pos_z(id));
-      }
-
-      // mean reco position for a given true pt
-      double x0 = std::accumulate(x.cbegin(), x.cend(), 0.) / n;
-      double y0 = std::accumulate(y.cbegin(), y.cend(), 0.) / n;
-      double z0 = std::accumulate(z.cbegin(), z.cend(), 0.) / n;
-
-      // keep reco pts with a threshold arround reco mean position
-      for (size_t i = 0; i< n; ++i) {
-        auto reco_id = ids[i];
-
-        double dx = x[i] - x0;
-        double dy = y[i] - y0;
-        double dz = z[i] - z0;
-        double dist2 = dx*dx + dy*dy + dz*dz;
-
-        if (dist2 < threshold2) 
-          insert_one_to_many(_reco2true, RecoVoxel3D(reco_id), true_pt);
-        else
-          reco_pts.erase(RecoVoxel3D(reco_id));
-      } // average over reco pts
-    } // loop true2reco
-
-    // remove empty set in true2reco
-    // TODO(2020-04-08 kvtsang) For c++20
-    //std::erase_if(_true2reco, [](auto& item){return item.second.size() == 0;});
-    for (auto itr = _true2reco.cbegin(), last = _true2reco.cend(); itr != last; ) {
-      if (itr->second.size() == 0)
-        itr = _true2reco.erase(itr);
-      else
-        ++itr;
-    }
-  }
-
-  void SuperaTrue2RecoVoxel3D::set_ghost()
-  {
-    for (auto const& [true_pt, reco_pts] : _true2reco) 
-      for (auto const& reco_pt : reco_pts)
-        insert_one_to_many(_reco2true, reco_pt, true_pt);
-  }
-
-  void SuperaTrue2RecoVoxel3D::find_hit_peaks(const std::vector<TrueHit_t>& hits,
-      double t_start, double t_end, std::set<TrackVoxel_t>& track_voxel_ids)
-  {
-    std::map<int, size_t> track_idx;
-    std::vector<double> n_electrons;
-    std::vector<VoxelID_t> voxel_ids;
-
-    auto update = [&](int track_id, VoxelID_t voxel_id, double ne) {
-      auto itr = track_idx.find(track_id);
-      if (itr == track_idx.end()) {
-        size_t idx = track_idx.size();
-        track_idx.emplace(track_id, idx);
-        n_electrons.push_back(ne);
-        voxel_ids.push_back(track_id);
-      }
-      else {
-        size_t idx = itr->second;
-        if (ne > n_electrons[idx]) {
-          n_electrons[idx] = ne;
-          voxel_ids[idx] = voxel_id;
-        }
-      }
-    };
-
-    for (auto const& hit: hits) {
-      if (t_start <= hit.time && hit.time <= t_end) {
-        for (size_t i =0; i < hit.track_voxel_ids.size(); ++i) {
-          auto const& true_info = hit.track_voxel_ids[i];
-          update(true_info.track_id, true_info.voxel_id, hit.n_electrons[i]);
-
-        }// loop (track_id, voxel_id)
-      } // hit time selection
-    } // loop hits
-
-    // insert (voxel_id, track_id) from peaks
-    for (auto [track_id, idx] : track_idx) {
-      track_voxel_ids.emplace(voxel_ids[idx], track_id);
-    }
-  }
-
-  void SuperaTrue2RecoVoxel3D::find_hits(const std::vector<TrueHit_t>& hits,
-      double t_start, double t_end, std::set<TrackVoxel_t>& track_voxel_ids)
-  {
+    Track2Voxel result;
     for (auto const& hit: hits) {
       // TODO(2020-03-02 kvtsang) binary search?
       // Hit times are sorted.
       // In principle could use binary search if need better performance
-      if (t_start <= hit.time && hit.time <= t_end)
-        track_voxel_ids.insert(
-            hit.track_voxel_ids.begin(),
-            hit.track_voxel_ids.end());
-    }
+      if (t_start <= hit.time && hit.time <= t_end) {
+        for (size_t i = 0; i < hit.track_ids.size(); ++i) {
+          auto track_id = hit.track_ids[i];
+          auto voxel_id = hit.voxel_ids[i];
+          insert_one_to_many(result, track_id, voxel_id);
+        } // loop hit.time
+      } // time window
+    } // loop hits
+    return result;
   }
 
   void SuperaTrue2RecoVoxel3D::clear_maps()
@@ -651,6 +453,38 @@ namespace larcv {
       for (auto& true_pt : true_pts)
         insert_one_to_many(reco2true, reco_pt.get_id(), true_pt.voxel_id);
     return reco2true;
+  }
+
+  size_t SuperaTrue2RecoVoxel3D::get_rank(
+      VoxelID_t id, const Voxel3DMeta& meta,
+      const std::unordered_set<VoxelID_t>& other_ids, 
+      int max_rank) {
+
+    std::vector<std::vector<std::tuple<int, int, int>>> _rank_indices;
+
+    for (int rank = _rank_indices.size(); rank < max_rank; ++rank) {
+      _rank_indices.emplace_back();
+      auto& indices = _rank_indices.back();
+      for (int i = -rank; i <= rank; ++i) {
+        for (int j = -rank; j <= rank; ++j) {
+          for (int k = -rank; k <= rank; ++k) {
+            if ((abs(i) + abs(j) + abs(k)) != rank) continue;
+            indices.emplace_back(i, j, k);
+          } // for k
+        } // for j
+      } // for  i
+    } // for rank
+
+    size_t rank = 0;
+    while (rank < _rank_indices.size()) {
+      for (auto [i, j, k] : _rank_indices[rank]) {
+        auto id_shifted = meta.shift(id, i, j, k);
+        if (other_ids.count(id_shifted) > 0)
+          return rank;
+      }
+      ++rank;
+    }
+    return rank;
   }
 
   void SuperaTrue2RecoVoxel3D::finalize()

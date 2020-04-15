@@ -52,6 +52,8 @@ namespace larcv {
     const std::unordered_set<RecoVoxel3D>&
     find_reco(int track_id, VoxelID_t true_id) const;
 
+    bool is_ghost(VoxelID_t id) const;
+
     const auto& get_reco2true() const { return _reco2true; };
     const auto& get_true2reco() const { return _true2reco; };
 
@@ -71,6 +73,11 @@ namespace larcv {
     double _hit_threshold_ne;
     double _hit_window_ticks;
 
+    std::vector<std::vector<std::tuple<int, int, int>>> _rank_indices;
+    size_t get_rank(VoxelID_t id, const Voxel3DMeta& meta,
+        const std::unordered_set<VoxelID_t>& other_ids,
+        int max_rank=6);
+        
     // Map (true_id, track_id) -> [RecoVoxel3D]
     std::map<TrackVoxel_t, std::unordered_set<RecoVoxel3D>> _true2reco;
     
@@ -94,24 +101,37 @@ namespace larcv {
         itr->second.insert(value);
     }
 
+    // finding n-fold overlaps 
+    template <typename T>
+    std::set<T> find_overlaps(const std::vector<std::set<T>>& col)
+    {
+      std::set<T> overlaps;
+      if (!col.empty()) {
+        auto const& s0 = col.front();
+        overlaps.insert(s0.cbegin(), s0.cend());
+      }
+
+      for (size_t i = 1; i < col.size(); ++i) {
+        auto const& s_i = col[i];
+        decltype(overlaps) tmp;
+
+        std::set_intersection(
+            s_i.cbegin(), s_i.cend(),
+            overlaps.cbegin(), overlaps.cend(),
+            std::inserter(tmp, tmp.end()));
+
+        overlaps = std::move(tmp);
+      }
+      return overlaps;
+    }
+
     // clear contents of reco2true and true2reco maps
     void clear_maps();
 
-    // find true hits in [t_start, t_end]
-    void find_hits(const std::vector<TrueHit_t>& hits, double t_start, double t_end,
-        std::set<TrackVoxel_t>& track_voxel_ids);
-
-    // find peak (per track_id) of true hits in [t_start, t_end]
-    void find_hit_peaks(const std::vector<TrueHit_t>& hits, double t_start, double t_end,
-        std::set<TrackVoxel_t>& track_voxel_ids);
-  
-    // make ghost labels with simple overlapping 2 or 3 true hits
-    void set_ghost();
-
-    // make ghost labels with averaging over reco pts for each true pt
-    void set_ghost_with_averaging(const larcv::Voxel3DMeta& meta3d);
-
-    bool is_ghost(VoxelID_t reco_id) const;
+    // match true hits in [t_start, t_end]
+    Track2Voxel match_track_segments(
+        const std::vector<TrueHit_t>& hits, 
+        double t_start, double t_end);
 
     // build a map of reco_id <-> true_id, ignoring track_id
     std::map<VoxelID_t, std::unordered_set<VoxelID_t>> contract_true2reco();

@@ -16,9 +16,14 @@
 
 #include <functional>
 #include <vector>
-#include "larcv/core/DataFormat/DataFormatTypes.h"
+//#include "larcv/core/DataFormat/DataFormatTypes.h"
+#include "larcv/core/DataFormat/Point.h"
+#include "larcv/core/DataFormat/Voxel3D.h"
 
-namespace larcv{
+namespace larcv
+{
+  typedef long TrackID_t;
+
   // composite index of (voxel_id, track_id)
   struct TrackVoxel_t
   {
@@ -38,14 +43,12 @@ namespace larcv{
     }
   };
 
-  // minimal hit info (time, voxel_id, track_id)
+  // minimal hit info (time, track_ids, x, y, z, Ne)
   struct TrueHit_t
   {
     double time;
-    friend inline bool operator<(const TrueHit_t &lhs, const TrueHit_t &rhs){
-      return lhs.time < rhs.time;
-    }
-    std::vector<TrackVoxel_t> track_voxel_ids;
+    std::vector<TrackID_t> track_ids;
+    std::vector<VoxelID_t> voxel_ids;
     std::vector<double> n_electrons;
   };
 
@@ -54,7 +57,8 @@ namespace larcv{
      User defined class RecoVoxel3D... these comments are used to generate
      doxygen documentation!
   */
-  class RecoVoxel3D{
+  class RecoVoxel3D
+  {
     public:
       
       /// Default constructor
@@ -86,10 +90,12 @@ namespace larcv{
       VoxelID_t _voxel_id; // voxel id
       double _charge;      // reco charge
   };
+
 }
 
 // hash functions for std::unordered_set
-namespace std {
+namespace std 
+{
   template<>
   class hash<larcv::RecoVoxel3D> {
     public:
@@ -106,5 +112,16 @@ namespace std {
         return v.voxel_id ^ (seed << 1);
       }
   };
+}
+
+namespace larcv
+{
+  typedef std::unordered_set<TrackVoxel_t> TrackVoxelSet;
+  typedef std::unordered_set<RecoVoxel3D> RecoVoxelSet;
+  typedef std::unordered_set<VoxelID_t> VoxelIDSet;
+  typedef std::unordered_map<TrackVoxel_t, RecoVoxelSet> True2Reco;
+  typedef std::unordered_map<RecoVoxel3D, TrackVoxelSet> Reco2True;
+  //typedef std::unordered_map<TrackID_t, VoxelIDSet> Track2Voxel;
+  typedef std::map<TrackID_t, VoxelIDSet> Track2Voxel;
 }
 #endif

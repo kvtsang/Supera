@@ -20,7 +20,13 @@ namespace larcv {
     _output_label       = cfg.get<std::string>("OutputLabel");
     _max_debug_dropping = cfg.get<size_t>("MaxDebugForDropping", 0);
     _n_planes           = cfg.get<size_t>("NumOfPlanes", 3);
-    _store_wire_info    = cfg.get<bool>("StoreWireInfo", false);
+
+    auto to_drop = cfg.get<std::vector<std::string>>("DropOutput", {});
+    _drop_output.insert(to_drop.cbegin(), to_drop.cend());
+    _store_wire_info = _drop_output.count("hit_*") == 0;
+
+    _reco_charge_range = cfg.get<std::vector<double>>("RecoChargeRange", {0,9e99}); 
+    assert(_reco_charge_range.size() == 2);
 
     Request(supera::LArDataType_t::kLArSpacePoint_t, _producer_label);
   }
@@ -47,7 +53,6 @@ namespace larcv {
     larcv::VoxelSet v_charge;
     larcv::VoxelSet v_charge_asym;
     larcv::VoxelSet v_chi2;
-    larcv::VoxelSet v_inv_chi2;
 
     std::vector<larcv::VoxelSet> v_hit_charge(_n_planes);
     std::vector<larcv::VoxelSet> v_hit_amp   (_n_planes);
@@ -79,11 +84,20 @@ namespace larcv {
     v_charge.reserve(points.size());
     v_charge_asym.reserve(points.size());
     v_chi2.reserve(points.size());
-    v_inv_chi2.reserve(points.size());
 
     size_t n_dropped = 0;
     for (size_t i_pt = 0; i_pt < points.size(); ++i_pt) {
         auto const &pt = points[i_pt];
+
+        // calculation from Tracys' Cluster3D
+        float charge = pt.ErrXYZ()[1];
+        float charge_asym = pt.ErrXYZ()[3];
+
+        if (charge < _reco_charge_range[0] || charge > _reco_charge_range[1]) {
+          ++n_dropped;
+          continue;
+        }
+
         auto *xyz = pt.XYZ();
         VoxelID_t vox_id = meta.id(xyz[0], xyz[1], xyz[2]);
         if(vox_id == larcv::kINVALID_VOXELID) { 
@@ -116,12 +130,7 @@ namespace larcv {
         if (!(v_chi2.find(vox_id) == larcv::kINVALID_VOXEL))
             continue;
 
-        // calculation from Tracys' Cluster3D
-        float charge = pt.ErrXYZ()[1];
-        float charge_asym = pt.ErrXYZ()[3];
-
         v_chi2.emplace(vox_id, pt.Chisq(), true);
-        v_inv_chi2.emplace(vox_id, 1. / pt.Chisq(), true);
         v_charge.emplace(vox_id, charge, true);
         v_charge_asym.emplace(vox_id, charge_asym, true);
 
@@ -149,8 +158,9 @@ namespace larcv {
 
     auto store = [&](auto &vset, const std::string& name)
     {
+        if (_drop_output.count(name) == 1) return;
         //auto &tensor = reinterpret_cast<larcv::EventSparseTensor3D>(
-        std::string label = _output_label + name;
+        std::string label = _output_label + "_" + name;
         auto &tensor = mgr.get_data<larcv::EventSparseTensor3D>(label);
         tensor.emplace(std::move(vset), meta);
 
@@ -158,21 +168,21 @@ namespace larcv {
 
     auto store_vec = [&](auto &vec, const std::string& name)
     {
+        if (_drop_output.count(name) == 1) return;
         for (size_t i = 0; i < _n_planes; ++i)
             store(vec[i], name + std::to_string(i));
     };
 
     store(v_charge,      "");
-    store(v_charge_asym, "_charge_asym");
-    store(v_chi2,        "_chi2");
-    store(v_inv_chi2,    "_inv_chi2");
-    store(v_occupancy,   "_occupancy");
+    store(v_charge_asym, "charge_asym");
+    store(v_chi2,        "chi2");
+    store(v_occupancy,   "occupancy");
 
     if (_store_wire_info) {
-      store_vec(v_hit_charge, "_hit_charge");
-      store_vec(v_hit_amp,    "_hit_amp");
-      store_vec(v_hit_time,   "_hit_time");
-      store_vec(v_hit_rms,    "_hit_rms");
+      store_vec(v_hit_charge, "hit_charge");
+      store_vec(v_hit_amp,    "hit_amp");
+      store_vec(v_hit_time,   "hit_time");
+      store_vec(v_hit_rms,    "hit_rms");
     }
 
     return true;

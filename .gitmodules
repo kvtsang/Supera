@@ -1,0 +1,3 @@
+[submodule "LArTPCEventGenerator"]
+	path = LArTPCEventGenerator
+	url = https://github.com/DeepLearnPhysics/LArTPCEventGenerator.git

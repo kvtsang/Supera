@@ -48,36 +48,42 @@ namespace larcv {
     _check_particle_validity = cfg.get<bool>("CheckParticleValidity",true);
     _merge_shower_delta = cfg.get<bool>("MergeShowerDelta", true);
     auto tpc_v = cfg.get<std::vector<unsigned short> >("TPCList");
+
+    auto cryostat_v   = cfg.get<std::vector<unsigned short> >("CryostatList");
+    auto tpc_v        = cfg.get<std::vector<unsigned short> >("TPCList"     );
+    std::vector<unsigned short> plane_v;
+    plane_v = cfg.get<std::vector<unsigned short> >("PlaneList",plane_v);
+    assert(cryostat_v.size() == tpc_v.size()  );
+    assert(plane_v.empty() || cryostat_v.size() == plane_v.size());
     larcv::Point3D min_pt(1.e9,1.e9,1.e9);
     larcv::Point3D max_pt(-1.e9,-1.e9,-1.e9);
-    for(auto const& tpc_id : tpc_v) {
-      auto geop = lar::providerFrom<geo::Geometry>();
-      for(size_t c=0; c<geop->Ncryostats(); ++c) {
-	auto const& cryostat = geop->Cryostat(c);
-	if(!cryostat.HasTPC(tpc_id)) continue;
-	auto const& tpcabox = cryostat.TPC(tpc_id).ActiveBoundingBox();
-	if(min_pt.x > tpcabox.MinX()) min_pt.x = tpcabox.MinX();
-	if(min_pt.y > tpcabox.MinY()) min_pt.y = tpcabox.MinY();
-	if(min_pt.z > tpcabox.MinZ()) min_pt.z = tpcabox.MinZ();
-	if(max_pt.x < tpcabox.MaxX()) max_pt.x = tpcabox.MaxX();
-	if(max_pt.y < tpcabox.MaxY()) max_pt.y = tpcabox.MaxY();
-	if(max_pt.z < tpcabox.MaxZ()) max_pt.z = tpcabox.MaxZ();
-	break;
+    auto geop = lar::providerFrom<geo::Geometry>();
+    for(size_t idx=0; idx<cryostat_v.size(); ++idx) {
+      auto const& c = cryostat_v[idx];
+      auto const& t = tpc_v[idx];
+      auto const& cryostat = geop->Cryostat(c);
+      if(!cryostat.HasTPC(t)) {
+	LARCV_CRITICAL() << "Invalid TPCList: cryostat " << c 
+			 << " does not contain tpc " << t << std::endl;
+	throw larbys();
       }
+      auto const& tpcabox = cryostat.TPC(t).ActiveBoundingBox();
+      if(min_pt.x > tpcabox.MinX()) min_pt.x = tpcabox.MinX();
+      if(min_pt.y > tpcabox.MinY()) min_pt.y = tpcabox.MinY();
+      if(min_pt.z > tpcabox.MinZ()) min_pt.z = tpcabox.MinZ();
+      if(max_pt.x < tpcabox.MaxX()) max_pt.x = tpcabox.MaxX();
+      if(max_pt.y < tpcabox.MaxY()) max_pt.y = tpcabox.MaxY();
+      if(max_pt.z < tpcabox.MaxZ()) max_pt.z = tpcabox.MaxZ();
     }
     _world_bounds.update(min_pt,max_pt);
 
     _ref_meta2d_tensor2d = cfg.get<std::string>("Meta2DFromTensor2D","");
-    auto cryostat_v   = cfg.get<std::vector<unsigned short> >("CryostatList");
-    //auto tpc_v        = cfg.get<std::vector<unsigned short> >("TPCList"     );
-    auto plane_v      = cfg.get<std::vector<unsigned short> >("PlaneList"   );
 
     _scan.clear();
-    auto geop = lar::providerFrom<geo::Geometry>();
     _scan.resize(geop->Ncryostats());
-    for(size_t cryoid=0; cryoid<_scan.size(); ++cryoid) {
-      auto const& cryostat = geop->Cryostat(cryoid);
-      auto& scan_cryo = _scan[cryoid];
+    for(size_t c=0; c<_scan.size(); ++c) {
+      auto const& cryostat = geop->Cryostat(c);
+      auto& scan_cryo = _scan[c];
       scan_cryo.resize(cryostat.NTPC());
       for(size_t tpcid=0; tpcid<scan_cryo.size(); ++tpcid) {
 	auto const& tpc = cryostat.TPC(tpcid);
@@ -87,17 +93,25 @@ namespace larcv {
     }
     //for(size_t cryo_id=0; cryo_id<_scan.size(); ++cryo_id){
     _valid_nplanes = 0;
-    for(auto const& cryo_id : cryostat_v) {
-      auto const& cryostat = geop->Cryostat(cryo_id);
-      for(auto const& tpc_id : tpc_v) {
-	if(!cryostat.HasTPC(tpc_id)) continue;
-	auto const& tpc = cryostat.TPC(tpc_id);
-	for(auto const& plane_id : plane_v) {
-	  if(!tpc.HasPlane(plane_id)) continue;
-	  _scan[cryo_id][tpc_id][plane_id] = _valid_nplanes;
-	  //std::cout<<cryo_id<<" "<<tpc_id<<" "<<plane_id<<" ... "<<_valid_nplanes<< std::endl;
-	  ++_valid_nplanes;
+    if(plane_v.size()) {
+      for(size_t idx=0; idx<cryostat_v.size(); ++idx) {
+	auto const& c = cryostat_v[idx];
+	auto const& t = tpc_v[idx];
+	auto const& p = plane_v[idx];
+	auto const& cryostat = geop->Cryostat(c);
+	if(!cryostat.HasTPC(t)) {
+	  LARCV_CRITICAL() << "Invalid TPCList: cryostat " << c 
+			   << " does not contain tpc " << t << std::endl;
+	  throw larbys();
 	}
+	auto const& tpc = cryostat.TPC(t);
+	if(!tpc.HasPlane(p)) {
+	  LARCV_CRITICAL() << "Invalid TPCList: cryostat " << c << " TPC " << t
+			   << " does not contain plane " << p << std::endl;
+	  throw larbys();
+	}
+	_scan[c][t][p] = _valid_nplanes;
+	++_valid_nplanes;
       }
     }
     
@@ -1775,8 +1789,55 @@ namespace larcv {
 
     }
 
-    LARCV_INFO() <<  "Start storing " << output2trackid.size() << " particles ...y" << std::endl;
-
+    // Next define interaction id
+    larcv::Vertex invalid_vtx;
+    std::vector<larcv::Vertex> int2vtx;
+    std::vector<int> group2int;
+    std::vector<size_t> invalids;
+    //auto const& ancestor_trackid_v = _mcpl.AncestorTrackId();
+    auto const& ancestor_index_v = _mcpl.AncestorIndex();
+    size_t no_ancestor_count = 0;
+    double no_ancestor_energy_sum = 0.;
+    for(size_t output_index=0; output_index<output2trackid.size(); ++output_index) {
+      auto const& trackid = output2trackid[output_index];
+      auto const& larmcp_index = trackid2index[trackid];
+      auto& p = part_grp_v[trackid].part;
+      if(larmcp_index < 0) {
+	LARCV_CRITICAL() << "Unexpected logiv error (simb::MCParticle must be found for a particle track id)" << std::endl;
+	throw larbys();
+	continue;
+      }
+      auto const& ancestor_index = ancestor_index_v[larmcp_index];
+      if(ancestor_index < 0) {
+	// unknown ancestor
+	no_ancestor_count++;
+	no_ancestor_energy_sum += p.energy_deposit();
+	continue;
+      }
+      auto const& ancestor = larmcp_v[ancestor_index];
+      larcv::Vertex apos (ancestor.Vx(),ancestor.Vy(),ancestor.Vz(),ancestor.T());
+      int aid = -1;
+      for(size_t iid=0; iid<int2vtx.size(); ++iid) 
+	{
+	  auto const& vtx = int2vtx[iid];
+	  if(vtx == apos) {
+	    aid = iid;
+	    break;
+	  }
+	}
+      if(aid<0) {
+	aid = int2vtx.size();
+	int2vtx.push_back(apos);
+      }
+      p.interaction_id(aid);
+    }
+    LARCV_NORMAL() << "Saved interaction count: "<<int2vtx.size() << std::endl;
+    LARCV_NORMAL() << no_ancestor_count << " particles have no ancestor, summed deposit energy = " << no_ancestor_energy_sum << std::endl;
+    //for(auto const& vtx : int2vtx)
+    //  std::cout<<vtx.x()<<","<<vtx.y()<<","<<vtx.z()<<","<<vtx.t()<<std::endl;
+    
+    LARCV_INFO() <<  "Start storing " << output2trackid.size() << " particles ..." << std::endl;
+    
     // now loop over to create VoxelSet for compton/photoelectron
     std::vector<larcv::Particle> part_v; part_v.resize(output2trackid.size());
     auto event_cluster    = (EventClusterVoxel3D*)(mgr.get_data("cluster3d",_output_label));

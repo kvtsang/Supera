@@ -13,6 +13,7 @@ art_make( BASENAME_ONLY
     LIB_LIBRARIES
 		nurandom_RandomUtils_NuRandomService_service
 		larcore_Geometry_Geometry_service
+		lardataalg_DetectorInfo
 		larcorealg_Geometry
 		larcoreobj_SummaryData
 		lardataobj_Simulation
@@ -41,6 +42,7 @@ art_make( BASENAME_ONLY
 		larcorealg_Geometry
 		#larsim_Simulation
 		#lardata_Utilities
+		lardataalg_DetectorInfo
 		larcoreobj_SummaryData
 		lardataobj_Simulation
 		lardataobj_MCBase

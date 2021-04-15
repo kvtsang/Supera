@@ -72,7 +72,9 @@ namespace larcv {
             << _producer_label << std::endl;
         return false;
     }
+
     auto const &points = *space_point_handle;
+
     art::InputTag const producer_tag(_producer_label);
     art::FindManyP<recob::Hit> find_hits(space_point_handle, *ev, producer_tag);
 
@@ -85,8 +87,26 @@ namespace larcv {
     v_charge_asym.reserve(points.size());
     v_chi2.reserve(points.size());
 
+    if (_store_wire_info) {
+      LARCV_DEBUG() << "Store wire info\n";
+      size_t n = points.size();
+      for (size_t plane = 0; plane < _n_planes; ++plane) {
+        v_hit_charge[plane].reserve(n);
+        v_hit_amp[plane].reserve(n);
+        v_hit_time[plane].reserve(n);
+        v_hit_rms[plane].reserve(n);
+      }
+    }
+
     size_t n_dropped = 0;
     for (size_t i_pt = 0; i_pt < points.size(); ++i_pt) {
+        if (i_pt < 10
+            || (i_pt < 1000 && i_pt % 100 == 0)
+            || (i_pt < 10000 && i_pt % 1000 ==0)
+            || (i_pt % 10000 == 0)) {
+          LARCV_INFO() << "Processing 3D pts " << i_pt << "/" << points.size() << '\n';
+        }
+
         auto const &pt = points[i_pt];
 
         // calculation from Tracys' Cluster3D
@@ -94,7 +114,6 @@ namespace larcv {
         float charge_asym = pt.ErrXYZ()[3];
 
         if (charge < _reco_charge_range[0] || charge > _reco_charge_range[1]) {
-          ++n_dropped;
           continue;
         }
 
@@ -111,20 +130,6 @@ namespace larcv {
             continue;
         } 
 
-        std::vector<art::Ptr<recob::Hit>> hits;
-        find_hits.get(i_pt, hits);
-
-        if (hits.size() > _n_planes) {
-            LARCV_WARNING() 
-                << "Dropping space point - "
-                << "Wrong number of hits: "
-                << hits.size()
-                << " (expecting " << _n_planes << ")" 
-                << std::endl;
-            ++n_dropped;
-            continue;
-        }
-
         v_occupancy.emplace(vox_id, 1, true);
 
         if (!(v_chi2.find(vox_id) == larcv::kINVALID_VOXEL))
@@ -135,6 +140,19 @@ namespace larcv {
         v_charge_asym.emplace(vox_id, charge_asym, true);
 
         if (_store_wire_info) {
+          std::vector<art::Ptr<recob::Hit>> hits;
+          if (hits.size() > _n_planes) {
+              LARCV_WARNING() 
+                  << "Dropping space point - "
+                  << "Wrong number of hits: "
+                  << hits.size()
+                  << " (expecting " << _n_planes << ")" 
+                  << std::endl;
+              ++n_dropped;
+              continue;
+          }
+
+          find_hits.get(i_pt, hits);
           for (const auto& hit : hits) {
               size_t plane = hit->WireID().Plane;
               if (plane < 0 || plane >= _n_planes) {
@@ -148,8 +166,7 @@ namespace larcv {
               v_hit_time  [plane].emplace(vox_id, hit->PeakTime(),      true);
               v_hit_rms   [plane].emplace(vox_id, hit->RMS(),           true);
           }
-        }
-
+       }
     }
 
     LARCV_INFO() << n_dropped << " out of " << points.size() 
@@ -161,10 +178,9 @@ namespace larcv {
         if (_drop_output.count(name) == 1) return;
         //auto &tensor = reinterpret_cast<larcv::EventSparseTensor3D>(
         std::string label = _output_label;
-	if(!name.empty()) label = label + "_" + name;
+	      if(!name.empty()) label = label + "_" + name;
         auto &tensor = mgr.get_data<larcv::EventSparseTensor3D>(label);
         tensor.emplace(std::move(vset), meta);
-
     };
 
     auto store_vec = [&](auto &vec, const std::string& name)

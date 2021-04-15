@@ -47,7 +47,6 @@ namespace larcv {
     _use_true_pos = cfg.get<bool>("UseTruePosition",true);
     _check_particle_validity = cfg.get<bool>("CheckParticleValidity",true);
     _merge_shower_delta = cfg.get<bool>("MergeShowerDelta", true);
-    auto tpc_v = cfg.get<std::vector<unsigned short> >("TPCList");
 
     auto cryostat_v   = cfg.get<std::vector<unsigned short> >("CryostatList");
     auto tpc_v        = cfg.get<std::vector<unsigned short> >("TPCList"     );
